@@ -29,7 +29,7 @@ void* vectorAdditionThread(void* arg) {
 }
 
 int main() {
-    unsigned long size = 10000000; // Reduced size to 10 million
+    unsigned long size = 10000000;
     srand(time(0));
 
     int* v1 = (int*)malloc(size * sizeof(int));
@@ -65,7 +65,7 @@ int main() {
     }
 
     auto stop = high_resolution_clock::now();
-    auto duration = duration_cast<nanoseconds>(stop - start); // Change to nanoseconds
+    auto duration = duration_cast<nanoseconds>(stop - start);
     cout << "Execution time: " << duration.count() << " nanoseconds" << endl;
 
     free(v1);
