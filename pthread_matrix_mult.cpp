@@ -1,76 +1,75 @@
+#include <iostream>
+#include <thread>
+#include <vector>
 #include <chrono>
 #include <cstdlib>
-#include <iostream>
 #include <pthread.h>
 
-using namespace std::chrono;
 using namespace std;
+using namespace std::chrono;
 
-struct ThreadData {
-    int* v1;
-    int* v2;
-    int* v3;
-    int start;
-    int end;
-};
+const int N = 100;
+const int THREAD_COUNT = 4;
 
-void randomVector(int vector[], int size) {
-    for (int i = 0; i < size; i++) {
-        vector[i] = rand() % 100;
+int A[N][N];
+int B[N][N];
+int C[N][N];
+
+void create_matrix(int matrix[N][N]) {
+    srand(time(0));
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < N; j++) {
+            matrix[i][j] = rand() % 10;
+        }
     }
 }
 
-void* vectorAdditionThread(void* arg) {
-    ThreadData* data = (ThreadData*)arg;
-    for (int i = data->start; i < data->end; i++) {
-        data->v3[i] = data->v1[i] + data->v2[i];
+struct ThreadData {
+    int start_row;
+    int end_row;
+};
+
+void* multiply_part(void* arg) {
+    ThreadData* data = (ThreadData*) arg;
+    int start_row = data->start_row;
+    int end_row = data->end_row;
+
+    for (int i = start_row; i < end_row; i++) {
+        for (int j = 0; j < N; j++) {
+            C[i][j] = 0;
+            for (int k = 0; k < N; k++) {
+                C[i][j] += A[i][k] * B[k][j];
+            }
+        }
     }
     return nullptr;
 }
 
 int main() {
-    unsigned long size = 10000000;
-    srand(time(0));
+    create_matrix(A);
+    create_matrix(B);
 
-    int* v1 = (int*)malloc(size * sizeof(int));
-    int* v2 = (int*)malloc(size * sizeof(int));
-    int* v3 = (int*)malloc(size * sizeof(int));
+    auto start_time = high_resolution_clock::now();
 
-    if (!v1 || !v2 || !v3) {
-        cout << "Memory allocation failed!" << endl;
-        return 1;
+    pthread_t threads[THREAD_COUNT];
+    ThreadData thread_data[THREAD_COUNT];
+    int rows_per_thread = N / THREAD_COUNT;
+
+    for (int i = 0; i < THREAD_COUNT; i++) {
+        thread_data[i].start_row = i * rows_per_thread;
+        thread_data[i].end_row = (i == THREAD_COUNT - 1) ? N : (i + 1) * rows_per_thread;
+
+        pthread_create(&threads[i], nullptr, multiply_part, &thread_data[i]);
     }
 
-    randomVector(v1, size);
-    randomVector(v2, size);
-
-    int num_threads = 4;
-    auto start = high_resolution_clock::now();
-
-    pthread_t threads[num_threads];
-    ThreadData thread_data[num_threads];
-    int chunk_size = size / num_threads;
-
-    for (int i = 0; i < num_threads; i++) {
-        thread_data[i].v1 = v1;
-        thread_data[i].v2 = v2;
-        thread_data[i].v3 = v3;
-        thread_data[i].start = i * chunk_size;
-        thread_data[i].end = (i == num_threads - 1) ? size : (i + 1) * chunk_size;
-        pthread_create(&threads[i], nullptr, vectorAdditionThread, &thread_data[i]);
-    }
-
-    for (int i = 0; i < num_threads; i++) {
+    for (int i = 0; i < THREAD_COUNT; i++) {
         pthread_join(threads[i], nullptr);
     }
 
-    auto stop = high_resolution_clock::now();
-    auto duration = duration_cast<nanoseconds>(stop - start);
-    cout << "Execution time: " << duration.count() << " nanoseconds" << endl;
+    auto stop_time = high_resolution_clock::now();
+    auto duration = duration_cast<nanoseconds>(stop_time - start_time);
 
-    free(v1);
-    free(v2);
-    free(v3);
+    cout << "Execution time: " << duration.count() << " nanoseconds" << endl;
 
     return 0;
 }
